@@ -1,0 +1,72 @@
+- hosts: all
+  become: true
+  tasks:
+    - name: Install Java and Python
+      apt:
+        name:
+          - openjdk-17-jdk
+          - python3
+        state: present
+
+    - name: Add Jenkins repo and install Jenkins
+      shell: |
+        curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
+        /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+        echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/ | \
+        sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+      args:
+        warn: false
+
+    - name: Install Jenkins
+      apt:
+        name: jenkins
+        state: present
+
+    - name: Start Jenkins
+      service:
+        name: jenkins
+        state: started
+        enabled: true
+
+    - name: Display Jenkins initialAdminPassword
+      shell: cat /var/lib/jenkins/secrets/initialAdminPassword
+      register: jenkins_password
+      changed_when: false
+
+    - name: Echo Jenkins initialAdminPassword
+      debug:
+        msg: "Jenkins initialAdminPassword: {{ jenkins_password.stdout }}"
+
+    - name: Check Java version
+      shell: java -version
+      register: java_version
+      ignore_errors: true  # Ignore errors if Java isn't installed
+      changed_when: false
+
+    - name: Display Java version
+      debug:
+        msg: "Java Version: {{ java_version.stderr_lines[0] if java_version.stderr else 'Java not installed' }}"
+
+    - name: Check Python version
+      shell: python3 --version
+      register: python_version
+      ignore_errors: true  # Ignore errors if Python isn't installed
+      changed_when: false
+
+    - name: Display Python version
+      debug:
+        msg: "Python Version: {{ python_version.stdout if python_version.stdout else 'Python not installed' }}"
+
+    - name: Check Jenkins service status
+      shell: systemctl is-active jenkins
+      register: jenkins_status
+      changed_when: false
+
+    - name: Display Jenkins service status
+      debug:
+        msg: "Jenkins Service Status: {{ 'active' if jenkins_status.stdout == 'active' else 'inactive or not running' }}"
+
+    - name: Display Jenkins access URL
+      debug:
+        msg: "Access Jenkins at: http://{{ ansible_host }}:8080"
+
